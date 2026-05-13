@@ -44,11 +44,11 @@ export default function Home() {
           <div className={styles.gameIcon} style={{ fontSize: '4rem' }}>🪨📄✂️</div>
           <div className={styles.gameInfo}>
             <h2>Rock Paper Scissors</h2>
-            <p>Classic RPS elevated! Play 5 simultaneous rounds against a real opponent. Outthink, outplay, outlast.</p>
+            <p>All-vs-all RPS! Every player picks simultaneously — beat more opponents to earn more points. Outthink, outplay, outlast.</p>
             <div className={styles.gameTags}>
               <span>🧠 Strategy</span>
               <span>🎯 5 Rounds</span>
-              <span>👥 2 Players</span>
+              <span>👥 2–4 Players</span>
             </div>
           </div>
           <div className={styles.playBtn}>Play Now →</div>
