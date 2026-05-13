@@ -28,12 +28,12 @@ export default function Home() {
             </div>
           </div>
           <div className={styles.gameInfo}>
-            <h2>Color Reaction Duel</h2>
-            <p>A color flashes on screen — smash the matching button before your opponent does! Wrong click = penalty. Lightning reflexes win.</p>
+            <h2>Color Reaction</h2>
+            <p>A color flashes on screen — smash the matching button before your opponents do! Wrong click = penalty. Lightning reflexes win.</p>
             <div className={styles.gameTags}>
               <span>⚡ Reflex</span>
               <span>🎯 5 Rounds</span>
-              <span>👥 2 Players</span>
+              <span>👥 2–4 Players</span>
             </div>
           </div>
           <div className={styles.playBtn}>Play Now →</div>
