@@ -15,6 +15,8 @@ const COLORS = [
   { name: 'orange', display: 'ORANGE', hex: '#f97316' },
 ];
 
+const PLAYER_ACCENT_COLORS = ['#a855f7', '#3b82f6', '#22c55e', '#f97316'];
+
 type Phase = 'lobby' | 'waiting' | 'countdown' | 'ready' | 'active' | 'result' | 'gameover';
 
 export default function ColorDuelPage() {
@@ -25,8 +27,10 @@ export default function ColorDuelPage() {
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({});
+  const [players, setPlayers]         = useState<string[]>([]);
   const [scores, setScores]           = useState<Record<string, number>>({});
   const [myId, setMyId]               = useState('');
+  const [hostId, setHostId]           = useState('');
   const [countdown, setCountdown]     = useState(3);
   const [currentColor, setCurrentColor] = useState<{ name: string; display: string; hex: string } | null>(null);
   const [round, setRound]             = useState(0);
@@ -40,10 +44,14 @@ export default function ColorDuelPage() {
     const s = io(BACKEND, { transports: ['websocket'] });
     socketRef.current = s;
 
-    s.on('room_created', ({ roomCode: rc, playerId }) => {
-      setRoomCode(rc); setMyId(playerId); setPhase('waiting');
+    s.on('room_created', ({ roomCode: rc, playerId, hostId: hid }) => {
+      setRoomCode(rc); setMyId(playerId); setHostId(hid);
+      setPlayers([playerId]);
+      setPhase('waiting');
     });
-    s.on('player_joined', ({ playerNames: pn }) => { setPlayerNames(pn); });
+    s.on('player_joined', ({ players: pl, playerNames: pn, hostId: hid }) => {
+      setPlayers(pl); setPlayerNames(pn); setHostId(hid);
+    });
     s.on('room_error', ({ message }) => setError(message));
     s.on('game_countdown', ({ count }) => { setPhase('countdown'); setCountdown(count); });
     s.on('game_started', () => setPhase('ready'));
@@ -76,16 +84,17 @@ export default function ColorDuelPage() {
     socketRef.current?.emit('join_room', { roomCode: code.trim().toUpperCase(), playerName: name.trim() });
   };
 
+  const startGame = () => {
+    setError('');
+    socketRef.current?.emit('start_game');
+  };
+
   const clickColor = useCallback((colorName: string) => {
     if (phase !== 'active') return;
     socketRef.current?.emit('color_click', { color: colorName });
   }, [phase]);
 
-  const opponentName = Object.entries(playerNames).find(([id]) => id !== myId)?.[1] ?? 'Waiting...';
-  const myName       = playerNames[myId] ?? name;
-  const myScore      = scores[myId] ?? 0;
-  const oppId        = Object.keys(playerNames).find(id => id !== myId) ?? '';
-  const oppScore     = scores[oppId] ?? 0;
+  const isHost = myId === hostId;
 
   // ── LOBBY ──────────────────────────────────────────────────────────────
   if (phase === 'lobby') return (
@@ -96,8 +105,8 @@ export default function ColorDuelPage() {
           <div className={styles.miniDots}>
             {COLORS.map(c => <span key={c.name} style={{ background: c.hex }} />)}
           </div>
-          <h1>Color Reaction Duel</h1>
-          <p>Hit the matching color button faster than your opponent!</p>
+          <h1>Color Reaction</h1>
+          <p>Hit the matching color button faster than your opponents! Up to 4 players.</p>
         </div>
         <input type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} maxLength={16} id="name-input" />
         <div className={styles.row}>
@@ -117,7 +126,10 @@ export default function ColorDuelPage() {
   if (phase === 'waiting') return (
     <div className={styles.page}>
       <div className={styles.card + ' fade-in'}>
-        <h2>Waiting for opponent…</h2>
+        <div className={styles.gameTitle}>
+          <h2>Lobby</h2>
+          <p>{players.length}/4 players joined</p>
+        </div>
         <div className={styles.roomCodeBox}>
           <p>Share this code</p>
           <div className={styles.bigCode}>{roomCode}</div>
@@ -126,7 +138,41 @@ export default function ColorDuelPage() {
             📋 Copy Code
           </button>
         </div>
-        <div className={styles.spinner} />
+
+        {/* Player list */}
+        <div className={styles.playerList}>
+          {players.map((pid, idx) => (
+            <div key={pid} className={styles.playerListItem}>
+              <span className={styles.playerDot} style={{ background: PLAYER_ACCENT_COLORS[idx] }} />
+              <span>{playerNames[pid] ?? `Player ${idx + 1}`}</span>
+              {pid === hostId && <span className={styles.hostBadge}>HOST</span>}
+            </div>
+          ))}
+          {Array.from({ length: 4 - players.length }).map((_, i) => (
+            <div key={`empty-${i}`} className={styles.playerListItem + ' ' + styles.emptySlot}>
+              <span className={styles.playerDot} style={{ background: 'rgba(255,255,255,0.1)' }} />
+              <span>Waiting for player…</span>
+            </div>
+          ))}
+        </div>
+
+        {isHost ? (
+          <button
+            className="btn btn-primary"
+            id="start-btn"
+            onClick={startGame}
+            disabled={players.length < 2}
+            style={{ opacity: players.length < 2 ? 0.4 : 1 }}
+          >
+            {players.length < 2 ? 'Need 1 more player…' : `Start Game (${players.length}P)`}
+          </button>
+        ) : (
+          <div style={{ textAlign: 'center', color: 'rgba(240,240,255,0.4)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+            <div className={styles.spinner} style={{ width: 20, height: 20, borderWidth: 2 }} />
+            Waiting for host to start…
+          </div>
+        )}
+        {error && <p className={styles.error}>{error}</p>}
       </div>
     </div>
   );
@@ -142,16 +188,19 @@ export default function ColorDuelPage() {
   // ── GAME (ready / active / result) ────────────────────────────────────
   if (['ready', 'active', 'result'].includes(phase)) return (
     <div className={styles.page}>
-      {/* Score bar */}
+      {/* Score bar — all players */}
       <div className={styles.scorebar}>
-        <div className={styles.playerScore}>
-          <span className={styles.pname}>{myName}</span>
-          <span className="score-badge">{myScore}</span>
-        </div>
         <div className={styles.roundInfo}>Round {round}/{maxRounds}</div>
-        <div className={styles.playerScore + ' ' + styles.right}>
-          <span className="score-badge">{oppScore}</span>
-          <span className={styles.pname}>{opponentName}</span>
+        <div className={styles.allScores}>
+          {players.map((pid, idx) => (
+            <div key={pid} className={styles.playerScore + (pid === myId ? ' ' + styles.myScore : '')}>
+              <span className={styles.playerDot} style={{ background: PLAYER_ACCENT_COLORS[idx] }} />
+              <span className={styles.pname}>{playerNames[pid] ?? `P${idx+1}`}</span>
+              <span className="score-badge" style={{ background: PLAYER_ACCENT_COLORS[idx] + '33', color: PLAYER_ACCENT_COLORS[idx] }}>
+                {scores[pid] ?? 0}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -170,7 +219,7 @@ export default function ColorDuelPage() {
         )}
         {phase === 'result' && roundResult && (
           <div className={styles.roundResult + ' pop'}>
-            {roundResult.winner === myId ? '🏆 You got it!' : `❌ ${playerNames[roundResult.winner] ?? 'Opponent'} was faster`}
+            {roundResult.winner === myId ? '🏆 You got it!' : `⚡ ${playerNames[roundResult.winner] ?? 'Someone'} was faster!`}
           </div>
         )}
       </div>
@@ -200,18 +249,29 @@ export default function ColorDuelPage() {
     <div className={styles.page}>
       <div className={styles.card + ' fade-in'}>
         <div className={styles.gameoverTitle}>
-          {draw ? '🤝 Draw!' : winner === myId ? '🏆 You Win!' : '💀 You Lost'}
+          {draw ? '🤝 It\'s a Draw!' : winner === myId ? '🏆 You Win!' : `🏆 ${playerNames[winner!] ?? 'Someone'} Wins!`}
         </div>
+
+        {/* Final leaderboard sorted by score */}
         <div className={styles.finalScores}>
-          {Object.entries(scores).map(([id, sc]) => (
-            <div key={id} className={styles.finalRow + (id === winner ? ' ' + styles.winnerRow : '')}>
-              <span>{playerNames[id]}</span>
-              <span className={styles.finalScore}>{sc}</span>
-            </div>
-          ))}
+          {Object.entries(scores)
+            .sort(([, a], [, b]) => b - a)
+            .map(([id, sc], idx) => (
+              <div key={id} className={styles.finalRow + (id === winner ? ' ' + styles.winnerRow : '')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: '1.1rem' }}>
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '4️⃣'}
+                  </span>
+                  <span>{playerNames[id]}</span>
+                  {id === myId && <span className={styles.youTag}>YOU</span>}
+                </div>
+                <span className={styles.finalScore}>{sc}</span>
+              </div>
+            ))}
         </div>
+
         <div className={styles.row} style={{ gap: 12 }}>
-          <button className="btn btn-primary" onClick={() => { setPhase('lobby'); setScores({}); setRound(0); }} id="play-again-btn">Play Again</button>
+          <button className="btn btn-primary" onClick={() => { setPhase('lobby'); setScores({}); setRound(0); setPlayers([]); }} id="play-again-btn">Play Again</button>
           <Link href="/" className="btn btn-ghost">Home</Link>
         </div>
       </div>
