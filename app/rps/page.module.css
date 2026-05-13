@@ -45,6 +45,30 @@
 .divider::before,.divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.08); }
 .error { color:#f87171; font-size:0.875rem; text-align:center; }
 
+/* Round picker */
+.roundPickerLabel { font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; color: rgba(240,240,255,0.35); text-transform: uppercase; text-align: center; }
+.roundPicker { display: flex; gap: 8px; justify-content: center; }
+.roundPicker button {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: rgba(240,240,255,0.5);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.roundPicker button:hover { border-color: rgba(168,85,247,0.4); color: rgba(240,240,255,0.8); }
+.roundPickerActive {
+  border-color: #a855f7 !important;
+  background: rgba(124,58,237,0.18) !important;
+  color: #c084fc !important;
+  box-shadow: 0 0 14px rgba(168,85,247,0.25);
+}
+
 /* Waiting / lobby */
 .roomCodeBox { text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px; padding:24px; background:rgba(124,58,237,0.1); border:1px solid rgba(168,85,247,0.2); border-radius:14px; }
 .roomCodeBox p { font-size:0.875rem; color:rgba(240,240,255,0.5); }

@@ -39,19 +39,22 @@ export default function ColorDuelPage() {
   const [winner, setWinner]           = useState<string | null>(null);
   const [draw, setDraw]               = useState(false);
   const [wrongFlash, setWrongFlash]   = useState(false);
+  const [selectedRounds, setSelectedRounds] = useState(5);
 
   useEffect(() => {
     const s = io(BACKEND, { transports: ['websocket'] });
     socketRef.current = s;
 
-    s.on('room_created', ({ roomCode: rc, playerId, hostId: hid }) => {
+    s.on('room_created', ({ roomCode: rc, playerId, hostId: hid, maxRounds: mr }) => {
       setRoomCode(rc); setMyId(playerId); setHostId(hid);
       setPlayers([playerId]);
+      if (mr) setSelectedRounds(mr);
       setPhase('waiting');
     });
     // Fired only to the socket that just joined (not the host)
-    s.on('room_joined', ({ roomCode: rc, playerId, playerNames: pn, players: pl, hostId: hid }) => {
+    s.on('room_joined', ({ roomCode: rc, playerId, playerNames: pn, players: pl, hostId: hid, maxRounds: mr }) => {
       setRoomCode(rc); setMyId(playerId); setPlayerNames(pn); setPlayers(pl); setHostId(hid);
+      if (mr) setSelectedRounds(mr);
       setPhase('waiting');
     });
     s.on('player_joined', ({ players: pl, playerNames: pn, hostId: hid }) => {
@@ -80,7 +83,7 @@ export default function ColorDuelPage() {
     if (!name.trim()) { setError('Enter your name'); return; }
     setError('');
     localStorage.setItem('mg_playerName', name.trim());
-    socketRef.current?.emit('create_room', { game: 'color-duel', playerName: name.trim() });
+    socketRef.current?.emit('create_room', { game: 'color-duel', playerName: name.trim(), maxRounds: selectedRounds });
   };
 
   const joinRoom = () => {
@@ -116,6 +119,17 @@ export default function ColorDuelPage() {
           <p>Hit the matching color button faster than your opponents! Up to 4 players.</p>
         </div>
         <input type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} maxLength={16} id="name-input" />
+        {/* Round picker — shown above Create Room */}
+        <p className={styles.roundPickerLabel}>Rounds</p>
+        <div className={styles.roundPicker}>
+          {[5, 10, 15, 20].map(r => (
+            <button
+              key={r}
+              className={selectedRounds === r ? styles.roundPickerActive : ''}
+              onClick={() => setSelectedRounds(r)}
+            >{r}</button>
+          ))}
+        </div>
         <div className={styles.row}>
           <button className="btn btn-primary" onClick={createRoom} id="create-btn">Create Room</button>
         </div>
