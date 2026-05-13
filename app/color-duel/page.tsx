@@ -22,7 +22,7 @@ type Phase = 'lobby' | 'waiting' | 'countdown' | 'ready' | 'active' | 'result' |
 export default function ColorDuelPage() {
   const socketRef = useRef<Socket | null>(null);
   const [phase, setPhase] = useState<Phase>('lobby');
-  const [name, setName]   = useState('');
+  const [name, setName]   = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('mg_playerName') || '' : ''));
   const [code, setCode]   = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
@@ -47,6 +47,11 @@ export default function ColorDuelPage() {
     s.on('room_created', ({ roomCode: rc, playerId, hostId: hid }) => {
       setRoomCode(rc); setMyId(playerId); setHostId(hid);
       setPlayers([playerId]);
+      setPhase('waiting');
+    });
+    // Fired only to the socket that just joined (not the host)
+    s.on('room_joined', ({ roomCode: rc, playerId, playerNames: pn, players: pl, hostId: hid }) => {
+      setRoomCode(rc); setMyId(playerId); setPlayerNames(pn); setPlayers(pl); setHostId(hid);
       setPhase('waiting');
     });
     s.on('player_joined', ({ players: pl, playerNames: pn, hostId: hid }) => {
@@ -74,6 +79,7 @@ export default function ColorDuelPage() {
   const createRoom = () => {
     if (!name.trim()) { setError('Enter your name'); return; }
     setError('');
+    localStorage.setItem('mg_playerName', name.trim());
     socketRef.current?.emit('create_room', { game: 'color-duel', playerName: name.trim() });
   };
 
@@ -81,6 +87,7 @@ export default function ColorDuelPage() {
     if (!name.trim()) { setError('Enter your name'); return; }
     if (!code.trim()) { setError('Enter a room code'); return; }
     setError('');
+    localStorage.setItem('mg_playerName', name.trim());
     socketRef.current?.emit('join_room', { roomCode: code.trim().toUpperCase(), playerName: name.trim() });
   };
 
